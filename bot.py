@@ -23,7 +23,7 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 
 def process_text(input: str):
-    return input.lower().replace(' ', '').replace(',', '').replace(':', '').replace('&', '').replace(';', '').replace('-', '')
+    return input.lower().replace(' ', '').replace(',', '').replace('&', '').replace(';', '').replace('-', '')
 
 def get_verse(input: str):
     output = ''
