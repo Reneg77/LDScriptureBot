@@ -147,7 +147,7 @@ async def on_message(message: discord.message):
                                     result = ''
                                     for number in range(int(start_No), int(end_No)+1):
                                         verse = verses[0:start_Index+1] + str(number)
-                                        result += await str(get_verse(verse))
+                                        result += str(await get_verse(verse))
                                         if result != '':
                                             result = '\n' + str(number) + '.  ' + result
                                     if result != '':
@@ -157,7 +157,7 @@ async def on_message(message: discord.message):
                                     else:
                                         misinputs += [input]
                                 else:
-                                    result = await str(get_verse(verses[0:len(verses)]))
+                                    result = str(await get_verse(verses[0:len(verses)]))
                                     if result != '':
                                         if text != '':
                                             text += '\n\n'
@@ -165,7 +165,7 @@ async def on_message(message: discord.message):
                                     else:
                                         misinputs += [input]
                             else:
-                                result = await str(get_verse(verses[0:len(verses)]))
+                                result = str(await get_verse(verses[0:len(verses)]))
                                 if result != '':
                                     if text != '':
                                         text += '\n\n'
