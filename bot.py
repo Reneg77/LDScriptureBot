@@ -1,5 +1,8 @@
 import json
 import os
+import functools
+import typing
+import asyncio
 
 import meaningless
 import discord
@@ -25,19 +28,31 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
+def to_thread(func: typing.Callable) -> typing.Coroutine:
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        return await asyncio.to_thread(func, *args, **kwargs)
+    return wrapper
+
+@to_thread
 def process_text(input: str):
     return input.lower().replace(' ', '').replace(',', '').replace('&', '').replace(';', '').replace('-', '')
 
+@to_thread
 def get_verse(input: str):
     output = ''
     translation = 'kjv'
+    if ':' in input:
+        numbers = False
+    else:
+        numbers = True
     if ' ' in input:
         translation = input[0:input.index(' ')]
     if translation in translations:
-        bible = meaningless.bible_web_extractor.WebExtractor(translation=translation, show_passage_numbers=False, output_as_list=False, strip_excess_whitespace_from_list=False, use_ascii_punctuation=False)
         input = input[input.index(' ')+1:len(input)]
     else:
-        bible = meaningless.bible_web_extractor.WebExtractor(translation='KJV', show_passage_numbers=False, output_as_list=False, strip_excess_whitespace_from_list=False, use_ascii_punctuation=False)
+        translation = 'KJV'
+    bible = meaningless.bible_web_extractor.WebExtractor(translation='KJV', show_passage_numbers=numbers, output_as_list=False, strip_excess_whitespace_from_list=False, use_ascii_punctuation=False)
     try:
         output = bible.search(input)
     except:
@@ -88,13 +103,14 @@ def get_verse(input: str):
 
     return output
 
+@to_thread
 @client.event
 async def on_ready():
     print(f'{client.user} is connected to the following guilds:')
     for guild in client.guilds:
         print(f'{guild.name}(id: {guild.id})')
     
-
+@to_thread
 @client.event
 async def on_message(message: discord.message):
     async with message.channel.typing():
