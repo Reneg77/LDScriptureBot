@@ -114,9 +114,12 @@ async def on_message(message: discord.message):
                                 result = ''
                                 for number in range(int(start_No), int(end_No)+1):
                                     verse = verses[0:start_Index+1] + str(number)
-                                    result += get_verse(verse)
-                                    if result != '':
-                                        result = '\n' + str(number) + '.  ' + result
+                                    verse = get_verse(verse)
+                                    if verse != '':
+                                        if result == '':
+                                            result = '\n' + str(number) + '.  ' + verse
+                                        else:
+                                            result += '\n' + str(number) + '.  ' + verse
                                 if result != '':
                                     if text != '':
                                         text += '\n\n'
