@@ -17,6 +17,12 @@ bom = json.load(open('book-of-mormon.json', encoding = 'utf8'))
 pogp = json.load(open('pearl-of-great-price.json', encoding = 'utf8'))
 dnc = json.load(open('doctrine-and-covenants.json', encoding = 'utf8'))
 scriptures = [bom, pogp, dnc]
+books = []
+
+for scripture in scriptures:
+    for book in scripture['books']:
+        books += [book['book']]
+print(books)
 
 tg = json.load(open('tg.json', encoding = 'utf8'))
 bd = json.load(open('bd.json', encoding = 'utf8'))
@@ -28,18 +34,13 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-def to_thread(func: typing.Callable) -> typing.Coroutine:
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        return await asyncio.to_thread(func, *args, **kwargs)
-    return wrapper
-
-@to_thread
-def process_text(input: str):
+async def process_text(input: str):
     return input.lower().replace(' ', '').replace(',', '').replace('&', '').replace(';', '').replace('-', '')
 
-@to_thread
-def get_verse(input: str):
+async def bible_search(bible: meaningless.bible_web_extractor.WebExtractor, input: str):
+    return bible.search(input)
+
+async def get_verse(input: str):
     output = ''
     translation = 'kjv'
     if ':' in input:
@@ -52,65 +53,62 @@ def get_verse(input: str):
         input = input[input.index(' ')+1:len(input)]
     else:
         translation = 'KJV'
-    bible = meaningless.bible_web_extractor.WebExtractor(translation='KJV', show_passage_numbers=numbers, output_as_list=False, strip_excess_whitespace_from_list=False, use_ascii_punctuation=False)
-    try:
-        output = bible.search(input)
-    except:
-        output = ''
+    bible = meaningless.bible_web_extractor.WebExtractor(translation=translation, show_passage_numbers=numbers, output_as_list=False, strip_excess_whitespace_from_list=False, use_ascii_punctuation=False)
     if output == '':
         for scripture in scriptures:
             for book in scripture['books']:
                 if 'numbers' in book:
                     for number in book['numbers']:
                         for chapter in number['chapters']:
-                            if process_text(input) == process_text(chapter['reference']):
+                            if (await process_text(input)) == (await process_text(chapter['reference'])):
                                 for verse in chapter['verses']:
                                     if output != '':
                                         output += '\n'
                                     output += str(verse['verse']) + '.  ' + verse['text'] 
                                 return output
                             for verse in chapter['verses']:
-                                if process_text(input) == process_text(verse['reference']):
+                                if (await process_text(input)) == (await process_text(verse['reference'])):
                                     output = verse['text']
                                     return output
                 else:
                     for chapter in book['chapters']:
-                        if process_text(input) == process_text(chapter['reference']):
+                        if (await process_text(input)) == (await process_text(chapter['reference'])):
                             for verse in chapter['verses']:
                                 if output != '':
                                     output += '\n'
                                 output += str(verse['verse']) + '.  ' + verse['text'] 
                             return output
                         for verse in chapter['verses']:
-                            if process_text(input) == process_text(verse['reference']):
+                            if (await process_text(input)) == (await process_text(verse['reference'])):
                                 output = verse['text']
                                 return output
     if output == '':
         for entry in tg['topical_guide']:
-            if process_text(input) == process_text(entry['name']):
+            if (await process_text(input)) == (await process_text(entry['name'])):
                 output = f'[{entry["name"]}](https://www.churchofjesuschrist.org/{entry["link"]})'
-                break
+                return output
     if output == '':
         for entry in bd['bible_dictionary']:
-            if process_text(input) == process_text(entry['name']):
+            if (await process_text(input)) == (await process_text(entry['name'])):
                 output = f'[{entry["name"]}](https://www.churchofjesuschrist.org/{entry["link"]})'
-                break
+                return output
     if output == '':
         for entry in dict:
-            if process_text(input) == process_text(entry):
+            if (await process_text(input)) == (await process_text(entry)):
                 output = dict[entry]
-                break
-
+                return output
+    try:
+        output = await bible_search(bible, input)
+    except:
+        output = ''
     return output
 
-@to_thread
 @client.event
 async def on_ready():
     print(f'{client.user} is connected to the following guilds:')
     for guild in client.guilds:
         print(f'{guild.name}(id: {guild.id})')
     
-@to_thread
 @client.event
 async def on_message(message: discord.message):
     async with message.channel.typing():
@@ -134,29 +132,11 @@ async def on_message(message: discord.message):
                             verses = content[start+1:end]
                             input = verses
                             if '-' in verses:
-                                start_Index = -1
-                                divider_Index = -1
-                                for char in range(0, len(verses)):
-                                    if verses[char] == ' ' or verses[char] == ':':
-                                        start_Index = char
-                                    if verses[char] == '-':
-                                        divider_Index = char
-                                if start_Index != -1 and divider_Index != -1:
-                                    start_No = verses[start_Index+1:divider_Index]
-                                    end_No = verses[divider_Index+1:len(verses)]
-                                    result = ''
-                                    for number in range(int(start_No), int(end_No)+1):
-                                        verse = verses[0:start_Index+1] + str(number)
-                                        result += str(await get_verse(verse))
-                                        if result != '':
-                                            result = '\n' + str(number) + '.  ' + result
-                                    if result != '':
-                                        if text != '':
-                                            text += '\n\n'
-                                        text += verses + ':' + result
-                                    else:
-                                        misinputs += [input]
-                                else:
+                                is_bible = True
+                                for book in books:
+                                    if book in input:
+                                        is_bible = False
+                                if is_bible:
                                     result = str(await get_verse(verses[0:len(verses)]))
                                     if result != '':
                                         if text != '':
@@ -164,6 +144,37 @@ async def on_message(message: discord.message):
                                         text += verses + ':\n' + result
                                     else:
                                         misinputs += [input]
+                                else:
+                                    start_Index = -1
+                                    divider_Index = -1
+                                    for char in range(0, len(verses)):
+                                        if verses[char] == ' ' or verses[char] == ':':
+                                            start_Index = char
+                                        if verses[char] == '-':
+                                            divider_Index = char
+                                    if start_Index != -1 and divider_Index != -1:
+                                        start_No = verses[start_Index+1:divider_Index]
+                                        end_No = verses[divider_Index+1:len(verses)]
+                                        result = ''
+                                        for number in range(int(start_No), int(end_No)+1):
+                                            verse = verses[0:start_Index+1] + str(number)
+                                            result += str(await get_verse(verse))
+                                            if result != '':
+                                                result = '\n' + str(number) + '.  ' + result
+                                        if result != '':
+                                            if text != '':
+                                                text += '\n\n'
+                                            text += verses + ':' + result
+                                        else:
+                                            misinputs += [input]
+                                    else:
+                                        result = str(await get_verse(verses[0:len(verses)]))
+                                        if result != '':
+                                            if text != '':
+                                                text += '\n\n'
+                                            text += verses + ':\n' + result
+                                        else:
+                                            misinputs += [input]
                             else:
                                 result = str(await get_verse(verses[0:len(verses)]))
                                 if result != '':
