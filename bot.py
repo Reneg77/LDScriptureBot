@@ -111,39 +111,49 @@ async def on_ready():
     
 @client.event
 async def on_message(message: discord.message):
-    async with message.channel.typing():
-        content = message.clean_content
-        if content == '[help]':
-            embed = discord.Embed()
-            embed.title = 'Help:'
-            embed.description = 'To use this bot, simply use two square brackets (“[” and “]”) and put a reference to a verse between them.\nYou may also place any single word or phrade between the brackets, to search english and bible dictionaries, or a topical guide.\n**Examples:**\n[Matthew 1: 1]\n[Genesis 1]\n[Revelation 7: 1-7]\n[help]\n[babylon]\n[fingle-fangle]'
-            embed.color = discord.Color.from_rgb(100, 200, 100)
-            await message.channel.send(embed=embed)
-            return
-        if '[' and ']' in content:
-            misinputs = []
-            text = ''
-            for start in range(0, len(content)):
-                if content[start] == '[':
-                    found = False
-                    for end in range(start+1, len(content)):
-                        if content[end] == ']' and not found:
-                            found = True
-                            verses = content[start+1:end]
-                            input = verses
-                            if '-' in verses:
-                                is_bible = True
-                                for book in books:
-                                    if book in input:
-                                        is_bible = False
-                                if is_bible:
-                                    result = str(await get_verse(verses[0:len(verses)]))
-                                    if result != '':
-                                        if text != '':
-                                            text += '\n\n'
-                                        text += verses + ':\n' + result
-                                    else:
-                                        misinputs += [input]
+    content = message.clean_content
+    if content == '[help]':
+        embed = discord.Embed()
+        embed.title = 'Help:'
+        embed.description = 'To use this bot, simply use two square brackets (“[” and “]”) and put a reference to a verse between them.\nYou may also place any single word or phrade between the brackets, to search english and bible dictionaries, or a topical guide.\n**Examples:**\n[Matthew 1: 1]\n[Genesis 1]\n[Revelation 7: 1-7]\n[help]\n[babylon]\n[fingle-fangle]'
+        embed.color = discord.Color.from_rgb(100, 200, 100)
+        await message.channel.send(embed=embed)
+        return
+    if '[' and ']' in content:
+        misinputs = []
+        text = ''
+        for start in range(0, len(content)):
+            if content[start] == '[':
+                found = False
+                for end in range(start+1, len(content)):
+                    if content[end] == ']' and not found:
+                        found = True
+                        verses = content[start+1:end]
+                        input = verses
+                        if '-' in verses:
+                            start_Index = -1
+                            divider_Index = -1
+                            for char in range(0, len(verses)):
+                                if verses[char] == ' ' or verses[char] == ':':
+                                    start_Index = char
+                                if verses[char] == '-':
+                                    divider_Index = char
+                            if start_Index != -1 and divider_Index != -1:
+                                start_No = verses[start_Index+1:divider_Index]
+                                end_No = verses[divider_Index+1:len(verses)]
+                                result = ''
+                                for number in range(int(start_No), int(end_No)+1):
+                                    verse = verses[0:start_Index+1] + str(number)
+                                    verse = get_verse(verse)
+                                    if verse != '':
+                                        if result == '':
+                                            result = '\n' + str(number) + '.  ' + verse
+                                        else:
+                                            result += '\n' + str(number) + '.  ' + verse
+                                if result != '':
+                                    if text != '':
+                                        text += '\n\n'
+                                    text += verses + ':' + result
                                 else:
                                     start_Index = -1
                                     divider_Index = -1
